@@ -78,6 +78,11 @@ impl Image {
             err => Err(from_libraw(err)),
         }
     }
+
+    pub fn unpack_thumbnail(&mut self) -> Result<()> {
+        match unsafe { ::libraw::libraw_unpack_thumb(self.data) } {
+            ::libraw::LIBRAW_SUCCESS => Ok(()),
+            err => Err(from_libraw(err)),
         }
     }
 
