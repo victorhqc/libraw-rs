@@ -1,10 +1,10 @@
-extern crate libraw_sys as libraw;
 extern crate libc;
+extern crate libraw_sys as libraw;
 
-pub use camera::{Cameras,camera_list};
-pub use error::{Error,Result};
-pub use image::{Image,PixelType,Pixmap,Pixels,Pixel,RawPixel,Color3Pixel,Color4Pixel};
-pub use version::{Version,version};
+pub use camera::{camera_list, Cameras};
+pub use error::{Error, Result};
+pub use image::{Color3Pixel, Color4Pixel, Image, Pixel, PixelType, Pixels, Pixmap, RawPixel};
+pub use version::{version, Version};
 
 mod camera;
 mod error;

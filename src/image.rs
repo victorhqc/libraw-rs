@@ -1,3 +1,4 @@
+use crate::error::{from_libraw, from_raw_os_error, os, Result};
 use std::ffi::CString;
 use std::mem;
 use std::path::Path;
@@ -5,7 +6,7 @@ use std::slice;
 
 use std::os::unix::prelude::*;
 
-use libc::{EINVAL,ENOMEM};
+use libc::{EINVAL, ENOMEM};
 
 /// The data type for raw pixel data.
 pub type RawPixel = u16;
@@ -30,39 +31,39 @@ impl Drop for Image {
 }
 
 impl Image {
-    fn new() -> ::Result<Image> {
+    fn new() -> Result<Image> {
         let data = unsafe {
-            ::libraw::libraw_init(::libraw::LIBRAW_OPIONS_NO_MEMERR_CALLBACK | ::libraw::LIBRAW_OPIONS_NO_DATAERR_CALLBACK)
+            ::libraw::libraw_init(
+                ::libraw::LIBRAW_OPIONS_NO_MEMERR_CALLBACK
+                    | ::libraw::LIBRAW_OPIONS_NO_DATAERR_CALLBACK,
+            )
         };
 
         if !data.is_null() {
             Ok(Image { data: data })
-        }
-        else {
-            Err(::error::from_raw_os_error(ENOMEM))
+        } else {
+            Err(from_raw_os_error(ENOMEM))
         }
     }
 
     /// Opens the raw image file at the specified path.
-    pub fn open(path: &Path) -> ::Result<Image> {
+    pub fn open(path: &Path) -> Result<Image> {
         let filename = match CString::new(path.as_os_str().as_bytes()) {
             Ok(s) => s,
-            Err(_) => return Err(::error::from_raw_os_error(EINVAL))
+            Err(_) => return Err(from_raw_os_error(EINVAL)),
         };
 
-        let image = try!(Image::new());
+        let image = Image::new()?;
 
-        ::error::os::clear_errno();
+        os::clear_errno();
 
         match unsafe { ::libraw::libraw_open_file(image.data, filename.as_ptr()) } {
             ::libraw::LIBRAW_SUCCESS => Ok(image),
-            ::libraw::LIBRAW_IO_ERROR => {
-                match ::error::os::errno() {
-                    0 => Err(::error::from_libraw(::libraw::LIBRAW_IO_ERROR)),
-                    errno => Err(::error::from_raw_os_error(errno)),
-                }
+            ::libraw::LIBRAW_IO_ERROR => match os::errno() {
+                0 => Err(from_libraw(::libraw::LIBRAW_IO_ERROR)),
+                errno => Err(from_raw_os_error(errno)),
             },
-            err => Err(::error::from_libraw(err)),
+            err => Err(from_libraw(err)),
         }
     }
 
@@ -71,10 +72,12 @@ impl Image {
     /// The raw data must be unpacked before it can be accessed. After unpacking, the pixel type
     /// can be determined with `raw_pixel_type()`, and the pixel data can be accessed with
     /// `raw_pixmap()`, `color3_pixmap()`, or `color4_pixmap()`.
-    pub fn unpack(&mut self) -> ::Result<()> {
+    pub fn unpack(&mut self) -> Result<()> {
         match unsafe { ::libraw::libraw_unpack(self.data) } {
             ::libraw::LIBRAW_SUCCESS => Ok(()),
-            err => Err(::error::from_libraw(err)),
+            err => Err(from_libraw(err)),
+        }
+    }
         }
     }
 
@@ -90,11 +93,11 @@ impl Image {
     /// ## Errors
     ///
     /// This method returns an error if the pixel data has not been unpacked.
-    pub fn raw_pixel_type(&self) -> ::Result<PixelType> {
+    pub fn raw_pixel_type(&self) -> Result<PixelType> {
         let rawdata = unsafe { &(*self.data).rawdata };
 
         if rawdata.raw_alloc.is_null() {
-            return Err(::error::from_raw_os_error(EINVAL));
+            return Err(from_raw_os_error(EINVAL));
         }
 
         if !rawdata.raw_image.is_null() {
@@ -118,7 +121,7 @@ impl Image {
     ///
     /// This method returns an error if the pixel data has not been unpacked or if the raw pixel
     /// data is in a different format (see `raw_pixel_type()`).
-    pub fn raw_pixmap(&self) -> ::Result<Pixmap<RawPixel>> {
+    pub fn raw_pixmap(&self) -> Result<Pixmap<RawPixel>> {
         let rawdata = unsafe { &(*self.data).rawdata };
 
         if !rawdata.raw_image.is_null() {
@@ -126,9 +129,8 @@ impl Image {
             let rows = rawdata.sizes.raw_height as usize;
 
             Ok(Pixmap::new(rawdata.raw_image, cols, rows))
-        }
-        else {
-            Err(::error::from_raw_os_error(EINVAL))
+        } else {
+            Err(from_raw_os_error(EINVAL))
         }
     }
 
@@ -138,7 +140,7 @@ impl Image {
     ///
     /// This method returns an error if the pixel data has not been unpacked or if the raw pixel
     /// data is in a different format (see `raw_pixel_type()`).
-    pub fn color3_pixmap(&self) -> ::Result<Pixmap<Color3Pixel>> {
+    pub fn color3_pixmap(&self) -> Result<Pixmap<Color3Pixel>> {
         let rawdata = unsafe { &(*self.data).rawdata };
 
         if !rawdata.raw_image.is_null() {
@@ -146,9 +148,8 @@ impl Image {
             let rows = rawdata.sizes.raw_height as usize;
 
             Ok(Pixmap::new(rawdata.color3_image, cols, rows))
-        }
-        else {
-            Err(::error::from_raw_os_error(EINVAL))
+        } else {
+            Err(from_raw_os_error(EINVAL))
         }
     }
 
@@ -158,7 +159,7 @@ impl Image {
     ///
     /// This method returns an error if the pixel data has not been unpacked or if the raw pixel
     /// data is in a different format (see `raw_pixel_type()`).
-    pub fn color4_pixmap(&self) -> ::Result<Pixmap<Color4Pixel>> {
+    pub fn color4_pixmap(&self) -> Result<Pixmap<Color4Pixel>> {
         let rawdata = unsafe { &(*self.data).rawdata };
 
         if !rawdata.raw_image.is_null() {
@@ -166,9 +167,8 @@ impl Image {
             let rows = rawdata.sizes.raw_height as usize;
 
             Ok(Pixmap::new(rawdata.color4_image, cols, rows))
-        }
-        else {
-            Err(::error::from_raw_os_error(EINVAL))
+        } else {
+            Err(from_raw_os_error(EINVAL))
         }
     }
 }
@@ -192,7 +192,10 @@ pub struct Pixmap<'a, T: Clone + 'static> {
     rows: usize,
 }
 
-impl<'a, T> Pixmap<'a, T> where T: Clone + 'static {
+impl<'a, T> Pixmap<'a, T>
+where
+    T: Clone + 'static,
+{
     fn new(ptr: *const T, cols: usize, rows: usize) -> Self {
         Pixmap {
             pixels: unsafe { slice::from_raw_parts(ptr, cols * rows) },
@@ -229,7 +232,10 @@ pub struct Pixels<'a, T: Clone + 'static> {
     end: *const T,
 }
 
-impl<'a, T> Pixels<'a, T> where T: Clone + 'static {
+impl<'a, T> Pixels<'a, T>
+where
+    T: Clone + 'static,
+{
     fn new(pixmap: &'a Pixmap<'a, T>) -> Self {
         Pixels {
             pixmap: pixmap,
@@ -239,7 +245,10 @@ impl<'a, T> Pixels<'a, T> where T: Clone + 'static {
     }
 }
 
-impl<'a, T> Iterator for Pixels<'a, T> where T: Clone + 'static {
+impl<'a, T> Iterator for Pixels<'a, T>
+where
+    T: Clone + 'static,
+{
     type Item = Pixel<'a, T>;
 
     fn next(&mut self) -> Option<Pixel<'a, T>> {
@@ -249,8 +258,7 @@ impl<'a, T> Iterator for Pixels<'a, T> where T: Clone + 'static {
             self.cur = unsafe { self.cur.offset(1) };
 
             Some(pixel)
-        }
-        else {
+        } else {
             None
         }
     }
@@ -273,7 +281,10 @@ pub struct Pixel<'a, T: Clone + 'static> {
     pixel: *const T,
 }
 
-impl<'a, T> Pixel<'a, T> where T: Clone + 'static {
+impl<'a, T> Pixel<'a, T>
+where
+    T: Clone + 'static,
+{
     fn new(pixels: &Pixels<'a, T>) -> Self {
         Pixel {
             pixmap: pixels.pixmap,

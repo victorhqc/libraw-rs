@@ -9,6 +9,8 @@ documentation = "http://dcuddeback.github.io/libraw-rs/libraw/"
 license = "MIT"
 readme = "README.md"
 keywords = ["libraw", "raw", "camera", "image"]
+edition = "2021"
+rust-version = "1.57"
 
 [dependencies]
 libc = "0.2"
